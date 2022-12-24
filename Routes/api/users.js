@@ -2,13 +2,15 @@ const express = require('express');
 const router = express.Router();
 const {check,validationResult}=require('express-validator'); 
 const bcrypt=require('bcryptjs');
+const jwt =require('jsonwebtoken')
 var gravatar = require('gravatar');
+const config=require('config')
 // const { exists } = require('../../models/Users.Js');
-const User=require('../../models/Users')
-router.post('/',[check('name','Name is requires').not().isEmpty(),
+const User=require('../../models/User')
+router.post('/',check('name','Name is requires').not().isEmpty(),
 check('email','Email is required, Enter valid Email Address').isEmail(),
 check('password','Please Enter a password with 6 or more characters').isLength({min:6})
-], 
+, 
 async(req,res) => {
    const errors=validationResult(req);
    if(!errors.isEmpty()){
@@ -25,21 +27,32 @@ try{
 const avatar=gravatar.url(email,{
     s:'200',
     r:'pg',
-    d:'404'
+    d:'mm'
 })
+
     user=new User({
         name,
         email, 
         avatar,
-        password,
+        password
     });
 //   <!!!!!!!!!........... Encrypt Password..............!!!!!!!!!!>
 const salt=  await bcrypt.genSalt(10);
 user.password= await bcrypt.hash(password,salt);
  await user.save();
- console.log(user.password);
+//  res.send('User Registered');
 //   <!!!!!!!!!........... Return Jason Web Token..............!!!!!!!!!!>
-    res.send('User Registered');
+    const payload ={
+        user:{
+            id:user.id
+        }
+    };
+    jwt.sign(
+        payload, config.get('jwtSecret'),
+        { expiresIn:'36000'},(err, token)=>{
+            if(err) throw err;
+            res.json({token});
+        });
 }catch(err){
     console.error(err.message);
     res.status(500).send('Server Error')
